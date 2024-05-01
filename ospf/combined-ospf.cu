@@ -34,32 +34,67 @@ void generateNetwork(int N, int graph[MAX_ROUTERS][MAX_ROUTERS]) {
 }
 
 // Kernel function to find the shortest path using Dijkstra algorithm
-__global__ void dijkstra_kernel(int N, int* graph, Router* routers, int src) {
-    int index = blockIdx.x * blockDim.x + threadIdx.x;
+__global__ void dijkstraKernel(float *graph, int *visited, float *dist, int n) {
+    int tid = threadIdx.x + blockIdx.x * blockDim.x;
+    if (tid >= n) return;
 
-    if (index < N) {
-        // Find the router with the minimum distance
-        int minDistance = INT_MAX;
-        int minIndex = -1;
-        for (int j = 0; j < N; j++) {
-            if (!routers[j].visited && routers[j].distance < minDistance) {
-                minDistance = routers[j].distance;
-                minIndex = j;
+    while (true) {
+        // Find the vertex with the minimum distance
+        int min_index = -1;
+        float min_distance = INT_MAX;
+
+        for (int i = 0; i < n; i++) {
+            if (!visited[i] && dist[i] < min_distance) {
+                min_distance = dist[i];
+                min_index = i;
             }
         }
 
-        // Mark the router as visited
-        routers[minIndex].visited = true;
+        if (min_index == -1)
+            break;
 
-        // Update distances of adjacent routers
-        for (int j = 0; j < N; j++) {
-            int weight = graph[minIndex * N + j];
-            if (weight && !routers[j].visited && routers[minIndex].distance + weight < routers[j].distance) {
-                routers[j].distance = routers[minIndex].distance + weight;
-                routers[j].parent = minIndex;
+        // Mark the vertex as visited
+        visited[min_index] = 1;
+
+        // Update the distances for all other vertices
+        for (int i = 0; i < n; i++) {
+            float weight = graph[min_index * n + i];
+            if (weight > 0 && dist[min_index] + weight < dist[i]) {
+                dist[i] = dist[min_index] + weight;
             }
         }
     }
+}
+
+void runDijkstraOnGPU(int graph[MAX_ROUTERS][MAX_ROUTERS], int n) {
+    float *d_graph, *d_dist;
+    int *d_visited;
+
+    cudaMalloc(&d_graph, n * n * sizeof(float));
+    cudaMalloc(&d_dist, n * sizeof(float));
+    cudaMalloc(&d_visited, n * sizeof(int));
+
+    cudaMemcpy(d_graph, graph, n * n * sizeof(float), cudaMemcpyHostToDevice);
+
+    dim3 block(256);
+    dim3 grid((n + block.x - 1) / block.x);
+
+    dijkstraKernel<<<grid, block>>>(d_graph, d_visited, d_dist, n);
+
+    cudaDeviceSynchronize();  // Ensure the kernel execution completes
+
+    float *h_dist = (float *)malloc(n * sizeof(float));
+    cudaMemcpy(h_dist, d_dist, n * sizeof(float), cudaMemcpyDeviceToHost);
+
+    // Output distances for demonstration
+    for (int i = 0; i < n; i++) {
+        printf("Distance from source to %d is %f\n", i, h_dist[i]);
+    }
+
+    free(h_dist);
+    cudaFree(d_graph);
+    cudaFree(d_dist);
+    cudaFree(d_visited);
 }
 
 void dijkstra(int N, int graph[MAX_ROUTERS][MAX_ROUTERS], Router routers[MAX_ROUTERS], int source) {
@@ -109,14 +144,7 @@ int main() {
         return 1;
     }
 
-    int* d_graph;
-    cudaMalloc(&d_graph, MAX_ROUTERS * MAX_ROUTERS * sizeof(int));
-
-    Router* d_routers;
-    cudaMalloc(&d_routers, N * sizeof(Router));
-
     int graph[MAX_ROUTERS][MAX_ROUTERS] = {0};
-    Router routers[MAX_ROUTERS];
 
     // Seed random number generator
     srand(time(NULL));
@@ -124,70 +152,27 @@ int main() {
     // Generate network topology
     generateNetwork(N, graph);
 
-    // Copy graph to device
-    cudaMemcpy(d_graph, graph, MAX_ROUTERS * MAX_ROUTERS * sizeof(int), cudaMemcpyHostToDevice);
-
-    // Print network topology (optional)
-    printf("Network Topology:\n");
-    for (int i = 0; i < N; i++) {
-        for (int j = 0; j < N; j++) {
-            printf("%d ", graph[i][j]);
-        }
-        printf("\n");
-    }
-
     clock_t start, end;
     double cpu_time_used;
 
-    start = clock();
-
-    // Run OSPF (Dijkstra) kernel
+    // Run Parallel OSPF
     printf("Running Parallel OSPF...\n");
-    for (int i = 0; i < N; i++) {
-        // Initialize routers on device
-        for (int j = 0; j < N; j++) {
-            routers[j].id = j;
-            routers[j].visited = false;
-            routers[j].distance = INT_MAX;
-            routers[j].parent = -1;
-        }
-        routers[i].distance = 0; // Set distance to source router as 0
-
-        cudaMemcpy(d_routers, routers, N * sizeof(Router), cudaMemcpyHostToDevice);
-
-        // Launch kernel
-        dijkstra_kernel<<<(N + BLOCK_SIZE - 1) / BLOCK_SIZE, BLOCK_SIZE>>>(N, d_graph, d_routers, i);
-
-        // Copy results back to host
-        cudaMemcpy(routers, d_routers, N * sizeof(Router), cudaMemcpyDeviceToHost);
-    }
-    cudaDeviceSynchronize();
-    end = clock();
-
-    cpu_time_used = ((double) (end - start)) / CLOCKS_PER_SEC;
-
-    printf("Time taken: %.8f seconds\n", cpu_time_used);
-
-    cudaFree(d_graph);
-    cudaFree(d_routers);
-
     start = clock();
-    // Run OSPF (Dijkstra)
+    runDijkstraOnGPU(graph, N);
+    end = clock();
+    cpu_time_used = ((double) (end - start)) / CLOCKS_PER_SEC;
+    printf("Time taken for Parallel OSPF: %.8f seconds\n", cpu_time_used);
+
+    // Run Serial OSPF
     printf("Running Serial OSPF...\n");
+    start = clock();
+    Router routers[MAX_ROUTERS];
     for (int i = 0; i < N; i++) {
         dijkstra(N, graph, routers, i);
-        // Print shortest paths (optional)
-        // printf("Shortest paths from Router %d:\n", i);
-        // for (int j = 0; j < N; j++) {
-        //     printf("Router %d -> Router %d: Distance = %d\n", i, j, routers[j].distance);
-        // }
-        // printf("\n");
     }
     end = clock();
-
     cpu_time_used = ((double) (end - start)) / CLOCKS_PER_SEC;
-
-    printf("Time taken: %.8f seconds\n", cpu_time_used);
+    printf("Time taken for Serial OSPF: %.8f seconds\n", cpu_time_used);
 
     return 0;
 }

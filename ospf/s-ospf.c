@@ -104,15 +104,13 @@ int main() {
     start = clock();
     // Run OSPF (Dijkstra)
     printf("Running OSPF...\n");
-    for (int i = 0; i < N; i++) {
-        dijkstra(N, graph, routers, i);
+    dijkstra(N, graph, routers, 0);
         // Print shortest paths (optional)
         // printf("Shortest paths from Router %d:\n", i);
         // for (int j = 0; j < N; j++) {
         //     printf("Router %d -> Router %d: Distance = %d\n", i, j, routers[j].distance);
         // }
         // printf("\n");
-    }
     end = clock();
 
     cpu_time_used = ((double) (end - start)) / CLOCKS_PER_SEC;
