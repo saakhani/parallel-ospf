@@ -65,10 +65,10 @@ void dijkstraCUDA(float *graph, int n) {
 
     cudaMemcpy(dist, dev_dist, n * sizeof(float), cudaMemcpyDeviceToHost);
 
-    // printf("Vertex   Distance from Source\n");
-    // for (int i = 0; i < n; i++) {
-    //     printf("%d \t %f\n", i, dist[i]);
-    // }
+    printf("Vertex   Distance from Source\n");
+    for (int i = 0; i < n; i++) {
+        printf("%d \t %f\n", i, dist[i]);
+    }
 
     free(visited);
     free(dist);
