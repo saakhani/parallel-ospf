@@ -1,0 +1,103 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <time.h>
+#include <limits.h>
+
+#define MAX_NODES 1200
+#define INFINITY INT_MAX
+
+// Function to print the matrix
+void printMatrix(int n, int matrix[MAX_NODES][MAX_NODES]) {
+    for (int i = 0; i < n; i++) {
+        for (int j = 0; j < n; j++) {
+            if (matrix[i][j] == INFINITY)
+                printf("%4s ", "Inf");
+            else
+                printf("%4d ", matrix[i][j]);
+        }
+        printf("\n");
+    }
+}
+
+// Function to initialize the graph with random values
+void initializeGraph(int n, int matrix[MAX_NODES][MAX_NODES]) {
+    for (int i = 0; i < n; i++) {
+        for (int j = 0; j < n; j++) {
+            if (i == j)
+                matrix[i][j] = 0;
+            else if (rand() % 4 == 0)  // 25% chance that there is no direct link
+                matrix[i][j] = INFINITY;
+            else
+                matrix[i][j] = rand() % 10 + 1;  // Cost between 1 and 10
+        }
+    }
+}
+
+// Function to find the vertex with the minimum distance value, from the set of vertices not yet included in the shortest path tree
+int minDistance(int dist[], int sptSet[], int n) {
+    int min = INFINITY, min_index;
+    for (int v = 0; v < n; v++)
+        if (sptSet[v] == 0 && dist[v] <= min)
+            min = dist[v], min_index = v;
+    return min_index;
+}
+
+// Function to implement Dijkstra's algorithm for a graph represented using adjacency matrix
+void dijkstra(int graph[MAX_NODES][MAX_NODES], int src, int n) {
+    int dist[MAX_NODES];  // The output array. dist[i] will hold the shortest distance from src to i
+    int sptSet[MAX_NODES]; // sptSet[i] will be true if vertex i is included in shortest path tree or shortest distance from src to i is finalized
+
+    // Initialize all distances as INFINITE and stpSet[] as false
+    for (int i = 0; i < n; i++)
+        dist[i] = INFINITY, sptSet[i] = 0;
+
+    // Distance of source vertex from itself is always 0
+    dist[src] = 0;
+
+    // Find shortest path for all vertices
+    for (int count = 0; count < n - 1; count++) {
+        int u = minDistance(dist, sptSet, n);
+        sptSet[u] = 1;
+        for (int v = 0; v < n; v++)
+            if (!sptSet[v] && graph[u][v] && dist[u] != INFINITY && dist[u] + graph[u][v] < dist[v])
+                dist[v] = dist[u] + graph[u][v];
+    }
+
+    // Print the constructed distance array
+    printf("Vertex Distance from Source\n");
+    for (int i = 0; i < n; i++)
+        printf("%d \t\t %d\n", i, dist[i]);
+}
+
+// Main function
+int main() {
+    int n;
+    printf("Enter the number of routers: ");
+    scanf("%d", &n);
+
+    // Check if the number of nodes is within limits
+    if (n > MAX_NODES) {
+        printf("Number of nodes exceeds the maximum limit of %d.\n", MAX_NODES);
+        return 1;
+    }
+
+    int graph[MAX_NODES][MAX_NODES];
+    srand(time(NULL));  // Seed the random number generator
+
+    initializeGraph(n, graph);
+    printf("Generated Network Topology:\n");
+    printMatrix(n, graph);
+
+    clock_t start, end;
+    double cpu_time_used;
+
+    start = clock();
+    dijkstra(graph, 0, n);  // Using the first router as the source
+    end = clock();
+
+    cpu_time_used = ((double) (end - start)) / CLOCKS_PER_SEC;
+
+    printf("Time taken: %.8f seconds\n", cpu_time_used);
+
+    return 0;
+}
