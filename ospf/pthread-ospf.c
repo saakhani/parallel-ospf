@@ -4,7 +4,7 @@
 #include <pthread.h>
 #include <sys/time.h>
 
-#define MAX_NODES 128
+#define MAX_NODES 1280
 #define INF FLT_MAX
 
 typedef struct {

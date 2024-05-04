@@ -4,7 +4,7 @@
 #include <limits.h>
 #include <time.h>
 
-#define MAX_ROUTERS 1300
+#define MAX_ROUTERS 1280
 
 // Structure to represent a router
 typedef struct {
@@ -71,14 +71,7 @@ void dijkstra(int N, int graph[MAX_ROUTERS][MAX_ROUTERS], Router routers[MAX_ROU
 }
 
 int main() {
-    int N;
-    printf("Enter the number of routers in the network (up to %d): ", MAX_ROUTERS);
-    scanf("%d", &N);
-
-    if (N <= 0 || N > MAX_ROUTERS) {
-        printf("Invalid number of routers.\n");
-        return 1;
-    }
+    int N = MAX_ROUTERS;
 
     int graph[MAX_ROUTERS][MAX_ROUTERS] = {0};
     Router routers[MAX_ROUTERS];
@@ -90,13 +83,13 @@ int main() {
     generateNetwork(N, graph);
 
     // Print network topology (optional)
-    printf("Network Topology:\n");
-    for (int i = 0; i < N; i++) {
-        for (int j = 0; j < N; j++) {
-            printf("%d ", graph[i][j]);
-        }
-        printf("\n");
-    }
+    // printf("Network Topology:\n");
+    // for (int i = 0; i < N; i++) {
+    //     for (int j = 0; j < N; j++) {
+    //         printf("%d ", graph[i][j]);
+    //     }
+    //     printf("\n");
+    // }
 
     clock_t start, end;
     double cpu_time_used;
@@ -106,11 +99,11 @@ int main() {
     printf("Running OSPF...\n");
     dijkstra(N, graph, routers, 0);
         // Print shortest paths (optional)
-        printf("Shortest paths from Router %d:\n", 0);
-        for (int j = 0; j < N; j++) {
-            printf("Router %d -> Router %d: Distance = %d\n", 0, j, routers[j].distance);
-        }
-        printf("\n");
+        // printf("Shortest paths from Router %d:\n", 0);
+        // for (int j = 0; j < N; j++) {
+        //     printf("Router %d -> Router %d: Distance = %d\n", 0, j, routers[j].distance);
+        // }
+        // printf("\n");
     end = clock();
 
     cpu_time_used = ((double) (end - start)) / CLOCKS_PER_SEC;
